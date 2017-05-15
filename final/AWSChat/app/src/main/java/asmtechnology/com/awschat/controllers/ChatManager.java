@@ -187,7 +187,7 @@ public class ChatManager {
         String uuid = generateUUID();
 
         final String imageFile = uuid;
-        final String previewFile = "NA";
+        final String previewFile = "thumbnail-" + imageFile;
 
         final Date timeSent = new Date();
 

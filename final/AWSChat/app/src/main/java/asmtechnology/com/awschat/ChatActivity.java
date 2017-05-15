@@ -205,7 +205,7 @@ public class ChatActivity extends AppCompatActivity implements RecyclerViewHolde
     }
 
     private void setupRecyclerView() {
-        mAdapter = new ChatListAdapter(this, this, null, fromUserId);
+        mAdapter = new ChatListAdapter(this, this, null, fromUserId, ChatActivity.this);
 
         RecyclerView.LayoutManager mLayoutManager = new LinearLayoutManager(getApplicationContext());
         mRecyclerView.setLayoutManager(mLayoutManager);

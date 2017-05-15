@@ -1,23 +1,32 @@
 package asmtechnology.com.awschat.recyclerview;
 
+import android.app.Activity;
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.os.Environment;
 import android.support.v7.widget.RecyclerView;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import java.io.File;
 import java.util.ArrayList;
 
 import asmtechnology.com.awschat.R;
 import asmtechnology.com.awschat.controllers.ChatManager;
+import asmtechnology.com.awschat.controllers.S3Controller;
 import asmtechnology.com.awschat.interfaces.RecyclerViewHolderListener;
+import asmtechnology.com.awschat.interfaces.S3ControllerGenericHandler;
 import asmtechnology.com.awschat.models.Chat;
 import asmtechnology.com.awschat.models.Message;
 
 public class ChatListAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
+    private Activity mActivity;
     private Context mContext;
     private RecyclerViewHolderListener mListener;
     private Chat mChat;
@@ -46,6 +55,44 @@ public class ChatListAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
             super(view);
             imageView = (ImageView) view.findViewById(R.id.imageView);
         }
+
+        public void loadImage(final String imageName, final Activity activity) {
+
+            String externalStorageDirectory = Environment.getExternalStorageDirectory().toString();
+            final String localFilePath = externalStorageDirectory + "/" + imageName + ".png";
+            File file = new File(localFilePath);
+
+            // image exists locally. use local copy.
+            if (file.exists()){
+                Bitmap b = BitmapFactory.decodeFile(localFilePath);
+                imageView.setImageBitmap(b);
+                return;
+            }
+
+            // image does not exist locally,
+            // download from S3 and save to documents directory.
+            imageView.setImageResource(R.drawable.placeholder);
+
+            S3Controller s3Controller = S3Controller.getInstance(mContext);
+            s3Controller.downloadThumbnail(localFilePath, imageName, new S3ControllerGenericHandler() {
+                @Override
+                public void didSucceed() {
+                    activity.runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            Bitmap b = BitmapFactory.decodeFile(localFilePath);
+                            imageView.setImageBitmap(b);
+                        }
+                    });
+                }
+
+                @Override
+                public void didFail(Exception exception) {
+                    Log.e("AWSCHAT", "Failed to download remote image:" + imageName, exception);
+                }
+            });
+        }
+
     }
 
     public class ReceivedTextViewHolder extends RecyclerView.ViewHolder {
@@ -66,13 +113,18 @@ public class ChatListAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
             super(view);
             imageView = (ImageView) view.findViewById(R.id.imageView);
         }
+
+        public void loadImage(String imageName, final Activity activity) {
+
+        }
     }
 
-    public ChatListAdapter(Context context, RecyclerViewHolderListener listener, Chat chat, String currentUserId) {
+    public ChatListAdapter(Context context, RecyclerViewHolderListener listener, Chat chat, String currentUserId, Activity activity) {
         mContext = context;
         mListener = listener;
         mCurrentUserId = currentUserId;
         mChat = chat;
+        mActivity = activity;
     }
 
     public void setChat(Chat c) {
@@ -151,6 +203,7 @@ public class ChatListAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
         Message message = messages.get(position);
         String messageText = message.getMessage_text();
         String senderId = message.getSender_id();
+        String messageImagePreview = message.getMesage_image_preview();
 
         if (holder.getItemViewType() == SENT_TEXT_VIEW) {
             ((SentTextViewHolder) holder).itemIndex = position;
@@ -158,6 +211,7 @@ public class ChatListAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
 
         } else if (holder.getItemViewType() == SENT_IMAGE_VIEW) {
             ((SentImageViewHolder) holder).itemIndex = position;
+            ((SentImageViewHolder) holder).loadImage(messageImagePreview, mActivity);
 
         } else if (holder.getItemViewType() == RECEIVED_TEXT_VIEW) {
             ((ReceivedTextViewHolder) holder).itemIndex = position;
@@ -165,6 +219,7 @@ public class ChatListAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
 
         } else if (holder.getItemViewType() == RECEIVED_IMAGE_VIEW) {
             ((ReceivedImageViewHolder) holder).itemIndex = position;
+            ((ReceivedImageViewHolder) holder).loadImage(messageImagePreview, mActivity);
         }
 
     }
